@@ -5,6 +5,8 @@ import cn.itcast.hotel.pojo.PageResult;
 import cn.itcast.hotel.pojo.RequestParams;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.io.IOException;
+
 public interface IHotelService extends IService<Hotel> {
-    PageResult search(RequestParams params);
+    PageResult search(RequestParams params) throws IOException;
 }
