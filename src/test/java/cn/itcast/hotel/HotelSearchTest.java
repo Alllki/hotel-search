@@ -31,9 +31,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class HotelSearchTest {
 
@@ -69,16 +67,31 @@ public class HotelSearchTest {
         );
 
         SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+
+        Map<String, List<String>> filters = filters();
+        System.out.println(filters);
         //解析响应
         handleResponse(response);
 
     }
 
-    @Test
-    void testAggregation() throws IOException {
+
+    Map<String, List<String>> filters() throws IOException {
+        Map<String, List<String>> map = new HashMap<>();
+
         SearchRequest request = new SearchRequest("hotel");
 
         request.source().size(0);
+
+        request.source().aggregation(AggregationBuilders
+                .terms("cityAgg")
+                .field("city")
+                .size(10));
+
+        request.source().aggregation(AggregationBuilders
+                .terms("starAgg")
+                .field("starName")
+                .size(10));
 
         request.source().aggregation(AggregationBuilders
                 .terms("brandAgg")
@@ -87,14 +100,21 @@ public class HotelSearchTest {
 
         SearchResponse response = client.search(request, RequestOptions.DEFAULT);
 
+        //解析聚合
         Aggregations aggregations = response.getAggregations();
-        Terms brandTerms = aggregations.get("brandAgg");
 
-        List<? extends Terms.Bucket> buckets = brandTerms.getBuckets();
-        for (Terms.Bucket bucket : buckets) {
-            String key = bucket.getKeyAsString();
-            System.out.println(key);
+        Map<String, Aggregation> asMap = aggregations.getAsMap();
+        for (String key : asMap.keySet()) {
+            Terms terms = aggregations.get(key);
+            List<? extends Terms.Bucket> buckets = terms.getBuckets();
+            ArrayList<String> names = new ArrayList<>();
+            for (Terms.Bucket bucket : buckets) {
+                names.add(bucket.getKeyAsString());
+            }
+            map.put(key, names);
         }
+        return map;
+
     }
 
     public static void handleResponse(SearchResponse response) {
@@ -110,6 +130,7 @@ public class HotelSearchTest {
                 continue;
             }
 
+            //解析高亮
             Map<String, HighlightField> highlightFields = hit.getHighlightFields();
             if (CollectionUtils.isEmpty(highlightFields)) {
                 continue;
@@ -119,11 +140,8 @@ public class HotelSearchTest {
             if (highlightField == null) {
                 continue;
             }
-
             String name = highlightField.getFragments()[0].string();
-
             hotelDoc.setName(name);
-            System.out.println(hotelDoc);
         }
     }
 
